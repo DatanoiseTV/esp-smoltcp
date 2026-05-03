@@ -310,6 +310,17 @@ uint32_t net_stack_get_netmask(net_iface_id_t iface)
     return v;
 }
 
+esp_err_t esp_smoltcp_get_ipv6_link_local(esp_smoltcp_iface_t iface, uint8_t out[16])
+{
+    if (iface >= NET_IFACE_MAX || !s_ifaces[iface].enabled || !out) {
+        return ESP_ERR_NOT_FOUND;
+    }
+    SMOLTCP_LOCK();
+    int ok = smoltcp_iface_get_ipv6(s_ifaces[iface].smoltcp_handle, out);
+    SMOLTCP_UNLOCK();
+    return ok ? ESP_OK : ESP_ERR_NOT_FOUND;
+}
+
 esp_err_t net_stack_l2_send(net_iface_id_t iface, const uint8_t *frame, size_t len)
 {
     if (iface >= NET_IFACE_MAX) return ESP_ERR_INVALID_ARG;

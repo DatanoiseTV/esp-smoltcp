@@ -149,6 +149,7 @@ runtime. Zero application source changes.
 | 127.0.0.0/8 loopback | ✅ in-RAM, never touches the wire |
 | IGMPv2 multicast | ✅ |
 | ICMP echo (ping) | ✅ |
+| IPv6 link-local + ping6 + NDP / ICMPv6 | ✅ (no SLAAC / DHCPv6 yet) |
 | L2 frame tap (PTP / LLDP / custom EtherTypes) | ✅ |
 | Built-in EMAC (ESP32-P4) | ✅ verified |
 | ESP-Hosted-MCU Wi-Fi | scaffolded, **not hardware-verified** |

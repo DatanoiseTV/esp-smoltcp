@@ -28,12 +28,27 @@ wired Ethernet** — ~96 % of practical wire-line max.
 - `esp_smoltcp_l2_tap()` — raw EtherType frame capture.
 - `esp_smoltcp_get_stats()` + `esp_smoltcp_frame_pool_drops()`.
 
+### IPv6
+
+Tier-1 support: smoltcp's IPv6 protocol is enabled, an IPv6 link-local
+address (fe80::/64, modified-EUI-64 derived from the MAC) is generated
+and registered automatically when an interface is attached. This means
+**ping6 to the link-local works**, NDP and ICMPv6 work, and the
+smoltcp-native socket API accepts IPv6 endpoints. Query the address
+via `esp_smoltcp_get_ipv6_link_local()`.
+
+What's NOT in v0.1.0:
+- SLAAC (Router Solicitation / Router Advertisement processing) —
+  smoltcp doesn't ship a client; would need to be hand-rolled
+- DHCPv6
+- Full BSD-sockets `AF_INET6` support in the `lwip_compat` shim — so
+  `esp_http_server` can't yet listen on `::`. Tracked for v0.2.
+
 ### Known limits
 
 - Only ESP32-P4 hardware-verified so far. Other RISC-V targets should
   work; classic ESP32 (Xtensa) requires a different Rust target spec.
 - ESP-Hosted Wi-Fi path is scaffolded but not yet hardware-verified
-  on this repo. Track in
-  [esp-smoltcp#1](https://github.com/DatanoiseTV/esp-smoltcp/issues/1).
+  on this repo.
 - DNS resolver is single-shot and very minimal (A records only,
   hardcoded primary server). Production users should bring their own.

@@ -22,6 +22,7 @@ use smoltcp::socket::{dhcpv4, tcp, udp};
 use smoltcp::time::Instant;
 use smoltcp::wire::{
     EthernetAddress, IpAddress, IpCidr, IpEndpoint, Ipv4Address, Ipv4Cidr,
+    Ipv6Address, Ipv6Cidr,
 };
 
 mod alloc_shim;
@@ -213,8 +214,21 @@ impl IfaceCtx {
     fn new(iface_id: u32, mac: [u8; 6]) -> Self {
         let mut dev = EspDevice::new(iface_id);
         let cfg = Config::new(EthernetAddress(mac).into());
-        let iface = Interface::new(cfg, &mut dev, now());
+        let mut iface = Interface::new(cfg, &mut dev, now());
         let sockets = SocketSet::new(vec![]);
+
+        // IPv6 link-local from the MAC, modified-EUI-64 form.
+        // FE80::/64 ; second-half is mac[0..3] + FF:FE + mac[3..6] with the
+        // U/L bit flipped on the first byte (XOR 0x02).
+        let ll = [
+            0xfe, 0x80, 0, 0, 0, 0, 0, 0,
+            mac[0] ^ 0x02, mac[1], mac[2], 0xff, 0xfe, mac[3], mac[4], mac[5],
+        ];
+        let ll_addr = Ipv6Address::from_octets(ll);
+        iface.update_ip_addrs(|addrs| {
+            let _ = addrs.push(IpCidr::Ipv6(Ipv6Cidr::new(ll_addr, 64)));
+        });
+
         Self {
             iface_id,
             dev,
@@ -251,7 +265,9 @@ impl IfaceCtx {
                     let cidr = cfg.address;
                     self.netmask_be = cidr_to_mask(cidr.prefix_len()).to_be();
                     self.iface.update_ip_addrs(|addrs| {
-                        addrs.clear();
+                        // Drop only existing IPv4 entries; keep the IPv6
+                        // link-local we added at iface creation.
+                        addrs.retain(|a| !matches!(a, IpCidr::Ipv4(_)));
                         let _ = addrs.push(IpCidr::Ipv4(cidr));
                     });
                     if let Some(gw) = cfg.router {
@@ -263,7 +279,9 @@ impl IfaceCtx {
                     self.has_ip = true;
                 }
                 Some(dhcpv4::Event::Deconfigured) => {
-                    self.iface.update_ip_addrs(|a| a.clear());
+                    self.iface.update_ip_addrs(|addrs| {
+                        addrs.retain(|a| !matches!(a, IpCidr::Ipv4(_)));
+                    });
                     self.iface.routes_mut().remove_default_ipv4_route();
                     self.netmask_be = 0;
                     self.gateway_be = 0;
@@ -366,6 +384,22 @@ pub unsafe extern "C" fn smoltcp_iface_get_ipv4(h: *mut IfaceCtx) -> u32 {
     }
 }
 
+/* Copy out the first non-loopback IPv6 address (typically the link-local
+ * we created at iface init). `out` must point to at least 16 bytes.
+ * Returns 1 on success, 0 if no v6 address is configured. */
+#[no_mangle]
+pub unsafe extern "C" fn smoltcp_iface_get_ipv6(h: *mut IfaceCtx, out: *mut u8) -> c_int {
+    if h.is_null() || out.is_null() { return 0; }
+    for cidr in (&*h).iface.ip_addrs() {
+        if let IpCidr::Ipv6(c) = cidr {
+            let octets = c.address().octets();
+            core::ptr::copy_nonoverlapping(octets.as_ptr(), out, 16);
+            return 1;
+        }
+    }
+    0
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn smoltcp_iface_get_gw(h: *mut IfaceCtx) -> u32 {
     if h.is_null() { return 0; }
@@ -388,7 +422,10 @@ pub unsafe extern "C" fn smoltcp_iface_set_static(h: *mut IfaceCtx,
     ctx.dhcp.take();
     let addr = ipv4_from_be(ipv4_be);
     let cidr = Ipv4Cidr::new(addr, prefix_len as u8);
-    ctx.iface.update_ip_addrs(|a| { a.clear(); let _ = a.push(IpCidr::Ipv4(cidr)); });
+    ctx.iface.update_ip_addrs(|a| {
+        a.retain(|cur| !matches!(cur, IpCidr::Ipv4(_)));   // keep v6 LL
+        let _ = a.push(IpCidr::Ipv4(cidr));
+    });
     ctx.netmask_be = cidr_to_mask(prefix_len as u8).to_be();
     if gw_be != 0 {
         let gw = ipv4_from_be(gw_be);

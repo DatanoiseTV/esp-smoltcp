@@ -47,6 +47,9 @@ bool              smoltcp_iface_has_ip(smoltcp_iface_t h);
 uint32_t          smoltcp_iface_get_ipv4(smoltcp_iface_t h);   /* network byte order */
 uint32_t          smoltcp_iface_get_gw(smoltcp_iface_t h);
 uint32_t          smoltcp_iface_get_netmask(smoltcp_iface_t h);
+/* IPv6: copies 16 bytes of the first configured v6 address (typically
+ * the link-local) into `out`. Returns 1 on success, 0 if none. */
+int               smoltcp_iface_get_ipv6(smoltcp_iface_t h, uint8_t out[16]);
 void              smoltcp_iface_set_static(smoltcp_iface_t h,
                                            uint32_t ipv4_be,
                                            uint32_t prefix_len,

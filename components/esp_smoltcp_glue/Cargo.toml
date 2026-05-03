@@ -35,7 +35,9 @@ smoltcp = { version = "0.12", default-features = false, features = [
     "proto-ipv4",
     "proto-dhcpv4",
     "proto-ipv4-fragmentation",
-    "multicast",            # IGMPv1/v2 — feature was renamed from proto-igmp
+    "proto-ipv6",           # IPv6 base: link-local, NDP, ICMPv6, ping6
+    "proto-ipv6-fragmentation",
+    "multicast",            # IGMPv1/v2 + MLDv1/v2 (smoltcp shares the flag)
     "socket-tcp",
     "socket-udp",
     "socket-dhcpv4",

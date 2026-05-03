@@ -87,6 +87,16 @@ uint32_t esp_smoltcp_get_ipv4(esp_smoltcp_iface_t iface);
 uint32_t esp_smoltcp_get_gateway(esp_smoltcp_iface_t iface);
 uint32_t esp_smoltcp_get_netmask(esp_smoltcp_iface_t iface);
 
+/* Copy the IPv6 link-local address (auto-generated from the MAC at
+ * attach time) into `out`. `out` must point to at least 16 bytes.
+ * Returns ESP_OK if a v6 address is configured, ESP_ERR_NOT_FOUND if
+ * the iface isn't up.
+ *
+ * Note: only the link-local is auto-configured. SLAAC for global v6
+ * addresses and DHCPv6 are not implemented yet — track the v0.2
+ * milestone for that work. */
+esp_err_t esp_smoltcp_get_ipv6_link_local(esp_smoltcp_iface_t iface, uint8_t out[16]);
+
 /* ---- runtime stats ---------------------------------------------------- */
 
 typedef struct {
