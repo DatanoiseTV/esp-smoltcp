@@ -108,6 +108,7 @@ typedef struct {
     uint32_t tx_fails;
     uint32_t link_ups;
     uint32_t link_downs;
+    uint32_t active_sockets;     /* current TCP+UDP smoltcp sockets   */
 } esp_smoltcp_stats_t;
 
 esp_err_t esp_smoltcp_get_stats(esp_smoltcp_iface_t iface, esp_smoltcp_stats_t *out);

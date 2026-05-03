@@ -14,19 +14,25 @@ config LWIP_COMPAT_ENABLE
 config LWIP_COMPAT_LISTENER_POOL
     int "TCP listener pool size (concurrent accept()s)"
     range 1 16
-    default 4
+    default 8
     depends on LWIP_COMPAT_ENABLE
     help
-        smoltcp has one socket per connection, so listen()/accept()
-        is implemented as a pool of pre-listening sockets on the same
+        smoltcp has one socket per connection, so listen()/accept() is
+        implemented as a pool of pre-listening sockets on the same
         port. This caps the number of half-open connections waiting
-        for accept().
+        for accept(). Each slot costs 16+32 KiB of internal SRAM, so
+        8 slots ≈ 384 KiB.
 
 config LWIP_COMPAT_MAX_FDS
     int "Max simultaneous BSD-socket FDs"
     range 4 64
-    default 16
+    default 32
     depends on LWIP_COMPAT_ENABLE
+    help
+        Upper bound on concurrent BSD-socket file descriptors. The
+        listener pool above plus all in-flight connections must fit
+        under this limit. 32 is comfortable for ~16 simultaneous TCP
+        connections.
 
 config LWIP_COMPAT_DNS_TIMEOUT_MS
     int "DNS query timeout (ms)"

@@ -375,6 +375,14 @@ pub unsafe extern "C" fn smoltcp_iface_has_ip(h: *mut IfaceCtx) -> bool {
     (&*h).has_ip
 }
 
+/* Number of currently-allocated app sockets (TCP + UDP) on this iface.
+ * Used by /api/stats to spot socket leaks under sustained traffic. */
+#[no_mangle]
+pub unsafe extern "C" fn smoltcp_iface_socket_count(h: *mut IfaceCtx) -> u32 {
+    if h.is_null() { return 0; }
+    (&*h).handles.len() as u32
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn smoltcp_iface_get_ipv4(h: *mut IfaceCtx) -> u32 {
     if h.is_null() { return 0; }

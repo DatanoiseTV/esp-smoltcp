@@ -341,6 +341,13 @@ esp_err_t net_stack_get_stats(net_iface_id_t iface, net_iface_stats_t *out)
     out->tx_fails   = i->tx_fails;
     out->link_ups   = i->link_ups;
     out->link_downs = i->link_downs;
+    if (i->enabled && i->smoltcp_handle) {
+        SMOLTCP_LOCK();
+        out->active_sockets = smoltcp_iface_socket_count(i->smoltcp_handle);
+        SMOLTCP_UNLOCK();
+    } else {
+        out->active_sockets = 0;
+    }
     return ESP_OK;
 }
 
