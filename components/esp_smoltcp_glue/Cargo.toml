@@ -1,0 +1,46 @@
+[package]
+name = "smoltcp_glue"
+version = "0.1.0"
+edition = "2021"
+description = "C FFI shim that exposes smoltcp to ESP-IDF"
+publish = false
+
+[lib]
+name = "smoltcp_glue"
+crate-type = ["staticlib"]
+
+[profile.release]
+# Tried opt-level=3 + lto="fat": regressed throughput from 86 to
+# 11 Mbit/s alongside ESP-IDF's -O2. Stay at -Os/lto=thin; it's the
+# config the rest of the toolchain expects.
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+debug = false
+overflow-checks = false
+
+[profile.dev]
+opt-level = 1
+panic = "abort"
+debug = true
+
+[dependencies]
+# smoltcp — pin a minor version. Bump deliberately; smoltcp's API moves
+# between minor releases.
+smoltcp = { version = "0.12", default-features = false, features = [
+    "alloc",                # enables Vec-backed SocketSet / buffer storage
+    "medium-ethernet",
+    "proto-ipv4",
+    "proto-dhcpv4",
+    "proto-ipv4-fragmentation",
+    "multicast",            # IGMPv1/v2 — feature was renamed from proto-igmp
+    "socket-tcp",
+    "socket-udp",
+    "socket-dhcpv4",
+    "socket-icmp",
+    "socket-raw",
+] }
+heapless = "0.8"
+managed = { version = "0.8", default-features = false, features = ["map", "alloc"] }

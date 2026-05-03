@@ -1,0 +1,97 @@
+menu "esp_smoltcp"
+
+# ---------------------------------------------------------------------------
+# IP configuration — applied automatically when an interface is attached.
+# ---------------------------------------------------------------------------
+config NETSTACK_DHCPV4_CLIENT
+    bool "Enable DHCPv4 client (started automatically on attach)"
+    default y
+
+config NETSTACK_STATIC_IP
+    string "Static IP / dotted-quad (used when DHCP is off)"
+    default "192.168.1.50"
+    depends on !NETSTACK_DHCPV4_CLIENT
+
+config NETSTACK_STATIC_GW
+    string "Static gateway"
+    default "192.168.1.1"
+    depends on !NETSTACK_DHCPV4_CLIENT
+
+config NETSTACK_DNS_PRIMARY
+    string "Primary DNS server"
+    default "1.1.1.1"
+
+config NETSTACK_DNS_SECONDARY
+    string "Secondary DNS server"
+    default "8.8.8.8"
+
+# ---------------------------------------------------------------------------
+# Multicast / time / management
+# ---------------------------------------------------------------------------
+config NETSTACK_IGMP
+    bool "IGMPv2 (IP multicast)"
+    default y
+    help
+        Required for mDNS, SSDP, and any UDP multicast app traffic.
+
+config NETSTACK_NTP_CLIENT
+    bool "Built-in SNTP client"
+    default n
+
+config NETSTACK_NTP_SERVER
+    string "NTP server (dotted-quad until DNS-resolved hostnames land)"
+    default "162.159.200.1"
+    depends on NETSTACK_NTP_CLIENT
+
+config NETSTACK_NTP_POLL_SECONDS
+    int "NTP poll interval (s)"
+    default 3600
+    depends on NETSTACK_NTP_CLIENT
+
+config NETSTACK_PTP
+    bool "PTP (IEEE-1588) hooks — uses EMAC HW timestamping"
+    default n
+    help
+        Enables the L2 frame tap for EtherType 0x88F7 and exposes the
+        EMAC HW-timestamp API. The PTP state machine itself is left to
+        the application (a stub daemon ships in src/ptp.c).
+
+# ---------------------------------------------------------------------------
+# Tuning
+# ---------------------------------------------------------------------------
+config NETSTACK_TASK_PRIORITY
+    int "Poll-task priority"
+    range 1 24
+    default 10
+
+config NETSTACK_TASK_STACK
+    int "Poll-task stack size (bytes)"
+    default 8192
+
+config NETSTACK_TASK_CORE
+    int "Pin poll task to core (-1 = no affinity)"
+    range -1 1
+    default 1
+
+config NETSTACK_RX_QUEUE_DEPTH
+    int "Per-interface RX queue depth (frames)"
+    default 32
+
+config NETSTACK_TX_QUEUE_DEPTH
+    int "Per-interface TX queue depth (frames)"
+    default 16
+
+config NETSTACK_FRAME_POOL_SIZE
+    int "RX frame slab-pool size (frames preallocated at boot)"
+    default 64
+    help
+        Frames pulled from this fixed pool on the eth-driver RX
+        callback — no heap_caps_malloc on the hot path. Each slot is
+        ~1.5 KiB, so default 64 = 96 KiB preallocated. Raise if you
+        see frame_pool_drops > 0 in /api/stats.
+
+config NETSTACK_MAX_SOCKETS
+    int "Max simultaneous smoltcp sockets across all interfaces"
+    default 16
+
+endmenu

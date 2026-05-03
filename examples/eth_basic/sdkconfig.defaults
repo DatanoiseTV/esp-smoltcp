@@ -1,0 +1,23 @@
+# ESP32-P4 with built-in EMAC + IP101 PHY (Waveshare P4-Nano default).
+# Adjust pins/PHY for your board.
+CONFIG_IDF_TARGET="esp32p4"
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="16MB"
+
+# PSRAM
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_HEX=y
+CONFIG_SPIRAM_SPEED_200M=y
+
+# esp_smoltcp tuning (see component Kconfig for the full menu)
+CONFIG_NETSTACK_DHCPV4_CLIENT=y
+CONFIG_LWIP_COMPAT_ENABLE=y
+CONFIG_VFS_SUPPORT_SELECT=n   # CRITICAL: see esp-smoltcp README
+
+# Disable lwIP IPv6 / autoIP — unreachable at runtime anyway via the wraps.
+CONFIG_LWIP_AUTOIP=n
+CONFIG_LWIP_IPV6=n
+CONFIG_LWIP_NETIF_LOOPBACK=y  # esp_http_server's control-socket check
+
+# Skip runtime assertions on the data-plane hot path
+CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE=y

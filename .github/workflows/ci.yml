@@ -1,0 +1,42 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        idf:    [release-v5.5, release-v6.0]
+        target: [esp32p4]
+        example: [eth_basic]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust nightly + riscv32imafc target
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-01-15
+          targets: riscv32imafc-unknown-none-elf
+          components: rust-src
+
+      - name: Build example
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: ${{ matrix.idf }}
+          target: ${{ matrix.target }}
+          path: 'examples/${{ matrix.example }}'
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.example }}-${{ matrix.idf }}-${{ matrix.target }}
+          path: |
+            examples/${{ matrix.example }}/build/*.bin
+            examples/${{ matrix.example }}/build/*.elf
+          retention-days: 14

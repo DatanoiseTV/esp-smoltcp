@@ -1,0 +1,45 @@
+menu "lwIP compatibility shim"
+
+config LWIP_COMPAT_ENABLE
+    bool "Enable lwIP -> smoltcp BSD-socket shim"
+    default y
+    help
+        Wraps every BSD-socket symbol with linker --wrap so all IDF
+        components (esp_http_server, esp-tls, esp-mqtt, ...) talk to
+        smoltcp transparently while still #include'ing <lwip/sockets.h>.
+
+        Disable to use the smoltcp-native net_stack_socket.h API
+        directly instead.
+
+config LWIP_COMPAT_LISTENER_POOL
+    int "TCP listener pool size (concurrent accept()s)"
+    range 1 16
+    default 4
+    depends on LWIP_COMPAT_ENABLE
+    help
+        smoltcp has one socket per connection, so listen()/accept()
+        is implemented as a pool of pre-listening sockets on the same
+        port. This caps the number of half-open connections waiting
+        for accept().
+
+config LWIP_COMPAT_MAX_FDS
+    int "Max simultaneous BSD-socket FDs"
+    range 4 64
+    default 16
+    depends on LWIP_COMPAT_ENABLE
+
+config LWIP_COMPAT_DNS_TIMEOUT_MS
+    int "DNS query timeout (ms)"
+    default 3000
+    depends on LWIP_COMPAT_ENABLE
+
+config LWIP_COMPAT_DEFAULT_IFACE_ETH
+    bool "Prefer Ethernet for outbound sockets"
+    default y
+    depends on LWIP_COMPAT_ENABLE
+    help
+        When a socket isn't bound to a specific local address, route
+        it via this interface. Falls back to whichever iface currently
+        has an IP if the preferred one doesn't.
+
+endmenu

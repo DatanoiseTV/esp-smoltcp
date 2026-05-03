@@ -1,0 +1,14 @@
+[build]
+target = "riscv32imafc-unknown-none-elf"
+
+[unstable]
+build-std = ["core", "alloc"]
+
+[target.riscv32imafc-unknown-none-elf]
+rustflags = [
+    # ESP32-P4 HP cores are RV32IMAFC (single-precision FPU). The Rust
+    # target ABI must match GCC's ABI exactly or `ld` rejects the link
+    # with "can't link soft-float modules with single-float modules".
+    "-C", "link-arg=-nostartfiles",
+    "-C", "force-frame-pointers=yes",
+]

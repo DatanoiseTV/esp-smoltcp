@@ -1,0 +1,10 @@
+description: "Rust smoltcp staticlib + C FFI for the esp_smoltcp ESP-IDF component."
+url: "https://github.com/DatanoiseTV/esp-smoltcp"
+license: "Apache-2.0 OR MIT"
+tags:
+  - networking
+  - smoltcp
+  - rust
+
+dependencies:
+  idf: ">=5.4"

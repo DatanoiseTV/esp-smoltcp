@@ -1,0 +1,26 @@
+# ESP-IDF build output
+/build/
+/build_*/
+/sdkconfig
+/sdkconfig.old
+/dependencies.lock
+/managed_components/
+
+# Cargo / Rust
+**/target/
+**/Cargo.lock
+!components/smoltcp_glue/Cargo.lock
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*~
+
+# Local overrides
+sdkconfig.local
+*.local
+
+# Claude Code local state
+/.claude/

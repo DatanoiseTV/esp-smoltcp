@@ -1,0 +1,12 @@
+description: "BSD-sockets compatibility shim — IDF networking components see smoltcp underneath via linker --wrap."
+url: "https://github.com/DatanoiseTV/esp-smoltcp"
+license: "Apache-2.0 OR MIT"
+tags:
+  - networking
+  - lwip-compat
+  - bsd-sockets
+
+dependencies:
+  idf: ">=5.4"
+  esp_smoltcp: "*"
+  esp_smoltcp_glue: "*"
