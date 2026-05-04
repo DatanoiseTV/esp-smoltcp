@@ -12,10 +12,9 @@ use core::ffi::{c_char, c_int, CStr};
 use core::ptr;
 
 use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
-
-use heapless::FnvIndexMap;
 use smoltcp::iface::{Config, Interface, SocketHandle, SocketSet};
 use smoltcp::phy::{self, Device, DeviceCapabilities, Medium};
 use smoltcp::socket::{dhcpv4, tcp, udp};
@@ -203,8 +202,12 @@ pub struct IfaceCtx {
     has_ip: bool,
     netmask_be: u32,
     gateway_be: u32,
-    /// app socket id -> smoltcp handle (id 0 reserved as invalid)
-    handles: FnvIndexMap<u32, SocketHandle, 32>,
+    /// app socket id -> smoltcp handle (id 0 reserved as invalid).
+    /// BTreeMap (unbounded) — the previous heapless::FnvIndexMap<_, 32>
+    /// was a fixed 32-entry cap whose insert errors were silently
+    /// discarded, causing the pool to starve after ~24 connections
+    /// because new ids weren't actually registered.
+    handles: BTreeMap<u32, SocketHandle>,
     next_id: u32,
 }
 
@@ -238,7 +241,7 @@ impl IfaceCtx {
             has_ip: false,
             netmask_be: 0,
             gateway_be: 0,
-            handles: FnvIndexMap::new(),
+            handles: BTreeMap::new(),
             next_id: 1,
         }
     }
@@ -246,7 +249,7 @@ impl IfaceCtx {
     fn alloc_id(&mut self, h: SocketHandle) -> u32 {
         let id = self.next_id;
         self.next_id = self.next_id.wrapping_add(1).max(1);
-        let _ = self.handles.insert(id, h);
+        self.handles.insert(id, h);
         id
     }
     fn lookup(&self, id: u32) -> Option<SocketHandle> {

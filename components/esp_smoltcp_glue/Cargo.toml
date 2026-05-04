@@ -44,5 +44,4 @@ smoltcp = { version = "0.12", default-features = false, features = [
     "socket-icmp",
     "socket-raw",
 ] }
-heapless = "0.8"
 managed = { version = "0.8", default-features = false, features = ["map", "alloc"] }
