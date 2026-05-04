@@ -37,11 +37,16 @@ smoltcp = { version = "0.12", default-features = false, features = [
     "proto-ipv4-fragmentation",
     "proto-ipv6",           # IPv6 base: link-local, NDP, ICMPv6, ping6
     "proto-ipv6-fragmentation",
+    "proto-ipv6-hbh",       # IPv6 Hop-by-Hop options (spec-compliant RAs, etc.)
+    "proto-dns",            # DNS protocol parsing (used by socket-dns)
     "multicast",            # IGMPv1/v2 + MLDv1/v2 (smoltcp shares the flag)
-    "socket-tcp",
+    "socket-tcp",           # default Reno; cubic is mutually-exclusive,
+                            # TODO: investigate enabling on a separate branch
     "socket-udp",
     "socket-dhcpv4",
     "socket-icmp",
     "socket-raw",
+    "socket-dns",           # async DNS resolver with retry / multi-server
+    "socket-mdns",          # mDNS responder for <hostname>.local
 ] }
 managed = { version = "0.8", default-features = false, features = ["map", "alloc"] }
