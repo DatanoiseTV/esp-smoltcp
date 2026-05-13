@@ -8,9 +8,17 @@ Hardware-verified at **91.15 Mbit/s sustained HTTP throughput on a
 100 Mbit/s wired Ethernet link** — ~96 % of practical wire-line max
 after framing overhead. Effectively wire-line.
 
-> **Status:** v0.1.0. ESP32-P4 (Waveshare P4-Nano) verified end to end.
-> Other RISC-V targets should work but aren't tested yet. ESP-Hosted
-> Wi-Fi path is scaffolded; not yet flashed on hardware.
+> **Status:** v0.1.0 (released, on the IDF Component Registry).
+> ESP32-P4 (Waveshare P4-Nano) verified end to end. Other RISC-V
+> targets should work but aren't tested yet. ESP-Hosted Wi-Fi path is
+> scaffolded; not yet flashed on hardware.
+>
+> **v0.2.0 in development** on the
+> [`feat/v0.2-vfs-and-netif`](https://github.com/DatanoiseTV/esp-smoltcp/tree/feat/v0.2-vfs-and-netif)
+> branch — VFS-registered socket layer (drops the v0.1
+> `CONFIG_VFS_SUPPORT_SELECT=n` workaround) and runtime hostname via
+> `esp_netif_set_hostname()`. Builds clean against IDF v6.0; hardware
+> validation pending.
 
 ## Why use this?
 
@@ -91,9 +99,11 @@ CONFIG_LWIP_COMPAT_ENABLE=y     # turn the shim on
 CONFIG_LWIP_NETIF_LOOPBACK=y    # esp_http_server compile-time check
 ```
 
-That's it. As of v0.2, `CONFIG_VFS_SUPPORT_SELECT=y` (the IDF default) works:
-the shim registers its own VFS for the BSD-socket FD range and IDF's
-`select()` dispatches to us.
+For released **v0.1.0** on the registry, also add
+`CONFIG_VFS_SUPPORT_SELECT=n` — IDF's VFS `select()` otherwise dispatches
+to lwIP via a function-pointer table the linker `--wrap` can't
+intercept. The **v0.2** branch registers its own VFS for the BSD-socket
+FD range, so the IDF default `=y` works.
 
 ## How it works
 
@@ -150,7 +160,7 @@ runtime. Zero application source changes.
 | Feature | State |
 |---|---|
 | BSD sockets (`<sys/socket.h>` + `<lwip/sockets.h>`) | ✅ |
-| `select()` / `poll()` | ✅ (via VFS-registered socket layer) |
+| `select()` / `poll()` | ✅ v0.1: requires `CONFIG_VFS_SUPPORT_SELECT=n`. v0.2: VFS-registered socket layer, default `=y` works. |
 | `getaddrinfo()` / `gethostbyname()` | ✅ minimal A-record resolver |
 | `esp_http_server` + chunked encoding + WebSockets | ✅ |
 | `esp_https_server` + mbedTLS | ✅ |
@@ -212,7 +222,8 @@ API, skipping the BSD shim).
   it up automatically.
 - **Internal SRAM ≥ ~250 KiB free** at startup. The slab pool is 96 KiB
   and the Rust TX scratch is 24 KiB; the rest is for socket buffers.
-- IDF v5.5/v6.0 default `CONFIG_VFS_SUPPORT_SELECT=y` works out of the box.
+- **v0.1.0:** set `CONFIG_VFS_SUPPORT_SELECT=n` (see Quick start).
+  **v0.2 branch:** IDF default `=y` works.
 
 ## Documentation
 
