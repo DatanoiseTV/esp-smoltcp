@@ -34,6 +34,17 @@ config LWIP_COMPAT_MAX_FDS
         under this limit. 32 is comfortable for ~16 simultaneous TCP
         connections.
 
+config LWIP_COMPAT_HOSTNAME
+    string "Default hostname"
+    default "esp-smoltcp"
+    depends on LWIP_COMPAT_ENABLE
+    help
+        Default hostname seeded into each iface at boot. Apps can change
+        it at runtime via the standard
+        esp_netif_set_hostname(netif, "...") call, exactly like on stock
+        lwIP. mDNS / DHCP option-12 read the current value via
+        esp_netif_get_hostname().
+
 config LWIP_COMPAT_DNS_TIMEOUT_MS
     int "DNS query timeout (ms)"
     default 3000

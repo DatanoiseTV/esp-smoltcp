@@ -32,12 +32,15 @@ static const char *TAG = "esp_netif_shim";
  * Use a distinct struct tag (`shim_netif`) so we don't redefine
  * `esp_netif_obj` in the same translation unit as IDF's forward decl.
  */
+#define SHIM_HOSTNAME_MAX 32
+
 struct shim_netif {
     net_iface_id_t iface;
     const char    *key;
+    char           hostname[SHIM_HOSTNAME_MAX];   /* runtime-settable */
 };
-static struct shim_netif s_netif_eth  = { NET_IFACE_ETH,  "ETH_DEF" };
-static struct shim_netif s_netif_wifi = { NET_IFACE_WIFI, "WIFI_STA_DEF" };
+static struct shim_netif s_netif_eth  = { NET_IFACE_ETH,  "ETH_DEF",      CONFIG_LWIP_COMPAT_HOSTNAME };
+static struct shim_netif s_netif_wifi = { NET_IFACE_WIFI, "WIFI_STA_DEF", CONFIG_LWIP_COMPAT_HOSTNAME };
 
 esp_netif_t *__wrap_esp_netif_get_handle_from_ifkey(const char *ifkey)
 {
@@ -87,16 +90,19 @@ const char *__wrap_esp_netif_get_ifkey(esp_netif_t *netif)
 
 esp_err_t __wrap_esp_netif_get_hostname(esp_netif_t *netif, const char **hostname)
 {
-    (void)netif;
-    if (!hostname) return ESP_ERR_INVALID_ARG;
-    *hostname = CONFIG_APP_HOSTNAME;
+    if (!netif || !hostname) return ESP_ERR_INVALID_ARG;
+    *hostname = ((struct shim_netif *)netif)->hostname;
     return ESP_OK;
 }
 
 esp_err_t __wrap_esp_netif_set_hostname(esp_netif_t *netif, const char *hostname)
 {
-    (void)netif; (void)hostname;
-    /* No-op — hostname is build-time via CONFIG_APP_HOSTNAME. */
+    if (!netif || !hostname) return ESP_ERR_INVALID_ARG;
+    struct shim_netif *o = (struct shim_netif *)netif;
+    size_t n = strnlen(hostname, SHIM_HOSTNAME_MAX);
+    if (n >= SHIM_HOSTNAME_MAX) return ESP_ERR_INVALID_ARG;
+    memcpy(o->hostname, hostname, n);
+    o->hostname[n] = '\0';
     return ESP_OK;
 }
 
