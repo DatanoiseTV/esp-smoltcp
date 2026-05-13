@@ -4,6 +4,7 @@ if(CONFIG_LWIP_COMPAT_ENABLE)
         "src/fd_table.c"
         "src/sock_wrap.c"
         "src/select_wrap.c"
+        "src/vfs_select.c"
         "src/netdb_wrap.c"
         "src/esp_netif_shim.c"
         "src/loopback.c"
@@ -20,6 +21,7 @@ idf_component_register(
         esp_event
         esp_timer
         esp_netif
+        vfs           # esp_vfs_register_fd_range
         lwip          # we link against its headers, just not its symbols
     WHOLE_ARCHIVE     # force linker to include all our __wrap_* symbols
 )

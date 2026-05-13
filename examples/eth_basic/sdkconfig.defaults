@@ -12,7 +12,8 @@ CONFIG_SPIRAM_SPEED_200M=y
 # esp_smoltcp tuning (see component Kconfig for the full menu)
 CONFIG_NETSTACK_DHCPV4_CLIENT=y
 CONFIG_LWIP_COMPAT_ENABLE=y
-CONFIG_VFS_SUPPORT_SELECT=n   # CRITICAL: see esp-smoltcp README
+# v0.2+ supports CONFIG_VFS_SUPPORT_SELECT=y (the default). The shim
+# registers its own VFS for the BSD-socket FD range, overriding lwIP's.
 
 # Disable lwIP IPv6 / autoIP — unreachable at runtime anyway via the wraps.
 CONFIG_LWIP_AUTOIP=n

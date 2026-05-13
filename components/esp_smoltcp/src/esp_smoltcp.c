@@ -366,6 +366,10 @@ esp_err_t esp_smoltcp_wait_for_ip(esp_smoltcp_iface_t iface, uint32_t timeout_ms
     return (got & bit) ? ESP_OK : ESP_ERR_TIMEOUT;
 }
 
+/* Defined strong in esp_smoltcp_lwip_compat when CONFIG_LWIP_COMPAT_ENABLE=y;
+ * weak default here is a no-op so esp_smoltcp can be used standalone. */
+__attribute__((weak)) esp_err_t esp_smoltcp_vfs_register(void) { return ESP_OK; }
+
 esp_err_t net_stack_init(void)
 {
     static bool inited;
@@ -402,6 +406,11 @@ esp_err_t net_stack_init(void)
         NULL, CONFIG_NETSTACK_TASK_PRIORITY, &s_task,
         CONFIG_NETSTACK_TASK_CORE < 0 ? tskNO_AFFINITY : CONFIG_NETSTACK_TASK_CORE);
     if (ok != pdPASS) return ESP_ERR_NO_MEM;
+
+    /* Hand the BSD-socket FD range to our VFS so VFS's select() dispatches
+     * to us (overrides lwIP's prior claim — see esp_smoltcp_vfs_register
+     * for the gory details). Weak no-op when the compat shim isn't linked. */
+    esp_smoltcp_vfs_register();
 
     ESP_LOGI(TAG, "esp_smoltcp ready (no L2 attached yet — call esp_smoltcp_attach_eth)");
     return ESP_OK;
