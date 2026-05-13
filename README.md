@@ -31,15 +31,28 @@ predictable poll model matters more than ecosystem familiarity.
 
 ## Quick start
 
-### As a component dependency (recommended)
+### Add to an existing IDF project
 
-In your existing IDF project's `main/idf_component.yml`:
+One-liner via the IDF Component Manager:
+
+```bash
+idf.py add-dependency "datanoisetv/esp_smoltcp^0.1.0"
+idf.py add-dependency "datanoisetv/esp_smoltcp_lwip_compat^0.1.0"
+```
+
+Or edit `main/idf_component.yml` by hand:
 
 ```yaml
 dependencies:
-  datanoisetv/esp_smoltcp: "^0.1"
-  datanoisetv/esp_smoltcp_lwip_compat: "^0.1"
+  datanoisetv/esp_smoltcp: "^0.1.0"
+  datanoisetv/esp_smoltcp_lwip_compat: "^0.1.0"
 ```
+
+Component pages on the registry:
+
+- https://components.espressif.com/components/datanoisetv/esp_smoltcp
+- https://components.espressif.com/components/datanoisetv/esp_smoltcp_lwip_compat
+- https://components.espressif.com/components/datanoisetv/esp_smoltcp_glue (transitively pulled)
 
 Then in your `app_main`:
 
