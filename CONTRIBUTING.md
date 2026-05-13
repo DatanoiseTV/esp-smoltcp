@@ -68,10 +68,13 @@ idf.py reconfigure
 These are documented in `examples/eth_basic/sdkconfig.defaults` so
 copies stay accurate:
 
-- `CONFIG_VFS_SUPPORT_SELECT=n` is **mandatory** with this stack.
-  Otherwise `select()` goes through ESP-IDF's VFS layer which queries
-  lwIP's socket table — and our smoltcp sockets aren't in that table,
-  so select always reports "not ready" and `esp_http_server` stalls.
+- `CONFIG_VFS_SUPPORT_SELECT=y` (the IDF default) works as of v0.2 — the
+  compat shim registers its own VFS for the BSD-socket FD range, taking
+  over from lwIP at `esp_smoltcp_init()` time. v0.1 required `=n` because
+  IDF's `select()` dispatched into lwIP via a function-pointer table that
+  the linker `--wrap=lwip_select` can't intercept. The VFS-registered
+  socket layer (`components/esp_smoltcp_lwip_compat/src/vfs_select.c`) is
+  the fix — see `esp_smoltcp_vfs_register()`.
 - **Don't enable `CONFIG_COMPILER_OPTIMIZATION_PERF` (`-O2`).** It
   regresses throughput from 86 to 28 Mbit/s. Some IDF data-plane code
   is correctness-tuned for `-Og`. Stay at the default.

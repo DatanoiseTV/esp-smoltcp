@@ -86,18 +86,14 @@ A complete working example lives in [`examples/eth_basic/`](examples/eth_basic/)
 
 ### Required `sdkconfig.defaults`
 
-Two settings are **mandatory** for the BSD-sockets shim to work:
-
 ```
-CONFIG_VFS_SUPPORT_SELECT=n     # otherwise select() bypasses our wrap
+CONFIG_LWIP_COMPAT_ENABLE=y     # turn the shim on
 CONFIG_LWIP_NETIF_LOOPBACK=y    # esp_http_server compile-time check
 ```
 
-Plus turn on the shim itself:
-
-```
-CONFIG_LWIP_COMPAT_ENABLE=y
-```
+That's it. As of v0.2, `CONFIG_VFS_SUPPORT_SELECT=y` (the IDF default) works:
+the shim registers its own VFS for the BSD-socket FD range and IDF's
+`select()` dispatches to us.
 
 ## How it works
 
@@ -154,7 +150,7 @@ runtime. Zero application source changes.
 | Feature | State |
 |---|---|
 | BSD sockets (`<sys/socket.h>` + `<lwip/sockets.h>`) | ✅ |
-| `select()` / `poll()` | ✅ (with `CONFIG_VFS_SUPPORT_SELECT=n`) |
+| `select()` / `poll()` | ✅ (via VFS-registered socket layer) |
 | `getaddrinfo()` / `gethostbyname()` | ✅ minimal A-record resolver |
 | `esp_http_server` + chunked encoding + WebSockets | ✅ |
 | `esp_https_server` + mbedTLS | ✅ |
@@ -216,7 +212,7 @@ API, skipping the BSD shim).
   it up automatically.
 - **Internal SRAM ≥ ~250 KiB free** at startup. The slab pool is 96 KiB
   and the Rust TX scratch is 24 KiB; the rest is for socket buffers.
-- **`CONFIG_VFS_SUPPORT_SELECT=n`** in your sdkconfig (see Quick start).
+- IDF v5.5/v6.0 default `CONFIG_VFS_SUPPORT_SELECT=y` works out of the box.
 
 ## Documentation
 

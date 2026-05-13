@@ -41,7 +41,6 @@ sustained HTTP download**, 0 TX failures, 0 RX drops over 200 MiB.
 
 ```
 CONFIG_LWIP_COMPAT_ENABLE=y      # when using the BSD-sockets shim
-CONFIG_VFS_SUPPORT_SELECT=n      # mandatory — see repo README
 CONFIG_LWIP_NETIF_LOOPBACK=y     # esp_http_server compile-time check
 ```
 

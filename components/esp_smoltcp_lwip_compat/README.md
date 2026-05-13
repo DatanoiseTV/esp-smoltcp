@@ -27,14 +27,12 @@ In addition to the wraps:
 
 ```
 CONFIG_LWIP_COMPAT_ENABLE=y
-CONFIG_VFS_SUPPORT_SELECT=n      # mandatory — see repo README
 CONFIG_LWIP_NETIF_LOOPBACK=y
 ```
 
-`CONFIG_VFS_SUPPORT_SELECT=n` is currently necessary because IDF's
-VFS `select()` layer queries lwIP's socket table directly and our
-smoltcp sockets aren't in that table. A cleaner VFS-registered
-socket layer is on the v0.2 roadmap (see issue tracker).
+As of v0.2, the IDF default `CONFIG_VFS_SUPPORT_SELECT=y` is supported —
+the shim registers its own VFS for the BSD-socket FD range, overriding
+lwIP's claim, so IDF's `select()` dispatches into us cleanly.
 
 ## License
 
