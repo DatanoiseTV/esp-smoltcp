@@ -1,0 +1,4 @@
+dependencies:
+  idf: ">=5.5"
+  # IP101 PHY moved out of the IDF tree in v6.0.
+  espressif/ip101: "^1.0.0"

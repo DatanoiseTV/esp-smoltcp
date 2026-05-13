@@ -21,6 +21,7 @@
 #include "esp_eth.h"
 #include "esp_eth_mac_esp.h"
 #include "esp_eth_phy_ip101.h"   // IDF v6.0+: from registry component
+#include "nvs_flash.h"
 #include "esp_smoltcp.h"
 
 static const char *TAG = "eth_basic";
