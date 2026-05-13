@@ -1,10 +1,29 @@
-description: "Rust smoltcp staticlib + C FFI for the esp_smoltcp ESP-IDF component."
+version: "0.1.0"
+description: "Rust smoltcp 0.12 staticlib + C FFI for the esp_smoltcp ESP-IDF component."
 url: "https://github.com/DatanoiseTV/esp-smoltcp"
+repository: "https://github.com/DatanoiseTV/esp-smoltcp.git"
+issues: "https://github.com/DatanoiseTV/esp-smoltcp/issues"
+documentation: "https://github.com/DatanoiseTV/esp-smoltcp#readme"
 license: "Apache-2.0 OR MIT"
 tags:
   - networking
   - smoltcp
   - rust
+  - no-std
+  - ip-stack
 
 dependencies:
   idf: ">=5.4"
+
+files:
+  exclude:
+    - "target/**/*"        # cargo build artifacts
+    - "Cargo.lock"
+  include:
+    - "Cargo.toml"
+    - "rust-toolchain.toml"
+    - ".cargo/config.toml"
+    - "src/*.rs"
+    - "src/*.c"
+    - "include/*.h"
+    - "CMakeLists.txt"

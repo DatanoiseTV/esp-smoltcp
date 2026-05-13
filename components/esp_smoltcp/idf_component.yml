@@ -1,15 +1,18 @@
-## esp_smoltcp — Rust smoltcp networking stack as an ESP-IDF component.
-## Drop-in BSD-sockets-compatible IP stack; lwIP stays compiled but its
-## socket layer is unreachable at runtime (see esp_smoltcp_lwip_compat).
-description: "Rust smoltcp IP stack for ESP-IDF, with lwIP-BSD-sockets compatibility shim."
+version: "0.1.0"
+description: "Rust smoltcp IP stack for ESP-IDF — single-task poll loop, slab-allocated frames, L2 tap, runtime stats. Pair with esp_smoltcp_lwip_compat for transparent BSD-sockets compatibility."
 url: "https://github.com/DatanoiseTV/esp-smoltcp"
+repository: "https://github.com/DatanoiseTV/esp-smoltcp.git"
+issues: "https://github.com/DatanoiseTV/esp-smoltcp/issues"
+documentation: "https://github.com/DatanoiseTV/esp-smoltcp#readme"
 license: "Apache-2.0 OR MIT"
 tags:
   - networking
   - tcp
   - smoltcp
   - rust
+  - ip-stack
+  - esp32-p4
 
 dependencies:
   idf: ">=5.4"
-  esp_smoltcp_glue: "*"
+  datanoisetv/esp_smoltcp_glue: "^0.1.0"
