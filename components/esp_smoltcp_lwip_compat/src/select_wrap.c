@@ -1,14 +1,28 @@
 /*
- * select() / poll() over our BSD-socket FDs.
+ * select() / poll() over our BSD-socket FDs — event-driven.
  *
- * Implementation: poll-based with a short sleep between scans. This is
- * the same shape as lwIP's older `lwip_select()` and is good enough for
- * esp_http_server, esp-mqtt, and the like — all of which use select()
- * with multi-second timeouts on a small handful of FDs.
+ * Wakes on real activity rather than ticking. The smoltcp poll task
+ * signals `PROGRESS_BIT` after every poll cycle (see
+ * esp_smoltcp.c::poll_iface); esp_smoltcp_wait_progress() blocks until
+ * that bit is set (clear-on-exit). So select() loops:
  *
- * For sub-millisecond responsiveness, replace the inner sleep with an
- * EventGroup wait fed by per-FD readability/writability bits set from
- * the net_stack task on each smoltcp poll cycle. (TODO.)
+ *   1. Snapshot readiness of every fd in the input sets.
+ *   2. If any ready, return immediately.
+ *   3. Otherwise wait on the progress bit with the remaining deadline.
+ *   4. Re-scan; goto 2.
+ *
+ * This eliminates the `vTaskDelay(1)` per-tick spin that v0.1 used and
+ * means tail latency on a freshly-readable socket is bounded by the
+ * smoltcp poll cycle time, not a FreeRTOS tick (≥1 ms at the default
+ * 1 kHz tick, 10 ms at 100 Hz).
+ *
+ * Notes:
+ *  - The per-fd `evt` EventGroup in fd_table.h is reserved but unused
+ *    here. The single global progress bit is the simpler design and
+ *    scales fine for a few dozen fds. Per-fd granularity would only
+ *    pay off if waking the poll task were expensive (it isn't — one
+ *    xTaskNotifyGive).
+ *  - Spurious wakes are POSIX-allowed; the rescan handles them.
  */
 
 #include <string.h>
@@ -59,15 +73,38 @@ static bool fd_writable(fd_entry_t *e)
     return false;
 }
 
+/* One scan over the requested fd_sets. Writes the ready bits into
+ * `rd`/`wr` (out) and returns the count. The caller masks against the
+ * original input sets. */
+static int scan_once(int nfds,
+                     const fd_set *rd_in, const fd_set *wr_in,
+                     fd_set *rd, fd_set *wr)
+{
+    int ready = 0;
+    for (int fd = 0; fd < nfds; fd++) {
+        if (!fd_is_socket(fd)) continue;
+        fd_entry_t *e = fd_get(fd);
+        if (!e) continue;
+        if (rd && FD_ISSET(fd, rd_in) && fd_readable(e)) {
+            FD_SET(fd, rd); ready++;
+        }
+        if (wr && FD_ISSET(fd, wr_in) && fd_writable(e)) {
+            FD_SET(fd, wr); ready++;
+        }
+    }
+    return ready;
+}
+
 int __wrap_lwip_select(int nfds, fd_set *rd, fd_set *wr, fd_set *ex, struct timeval *to)
 {
     (void)ex;
-    TickType_t deadline;
-    if (to) {
+
+    bool block_forever = (to == NULL);
+    TickType_t now = xTaskGetTickCount();
+    TickType_t deadline = 0;
+    if (!block_forever) {
         uint32_t ms = to->tv_sec * 1000u + to->tv_usec / 1000u;
-        deadline = xTaskGetTickCount() + pdMS_TO_TICKS(ms);
-    } else {
-        deadline = portMAX_DELAY;
+        deadline = now + pdMS_TO_TICKS(ms);
     }
 
     fd_set rd_in, wr_in;
@@ -78,21 +115,41 @@ int __wrap_lwip_select(int nfds, fd_set *rd, fd_set *wr, fd_set *ex, struct time
     if (ex) FD_ZERO(ex);
 
     for (;;) {
-        int ready = 0;
-        for (int fd = 0; fd < nfds; fd++) {
-            if (!fd_is_socket(fd)) continue;
-            fd_entry_t *e = fd_get(fd);
-            if (!e) continue;
-            if (FD_ISSET(fd, &rd_in) && fd_readable(e)) {
-                FD_SET(fd, rd); ready++;
-            }
-            if (FD_ISSET(fd, &wr_in) && fd_writable(e)) {
-                FD_SET(fd, wr); ready++;
-            }
-        }
+        int ready = scan_once(nfds, &rd_in, &wr_in, rd, wr);
         if (ready) return ready;
-        if (deadline != portMAX_DELAY && xTaskGetTickCount() >= deadline) return 0;
-        vTaskDelay(1);   /* 1 tick — minimum FreeRTOS yield */
+
+        if (!block_forever) {
+            now = xTaskGetTickCount();
+            if ((int32_t)(deadline - now) <= 0) return 0;   /* timed out */
+        }
+
+        /* Compute remaining time for this wait. Clamp to 1 s so callers
+         * with portMAX_DELAY-equivalent timeouts still get periodic
+         * rescans (cheap) and so we never feed an unsafe value into
+         * pdMS_TO_TICKS. */
+        uint32_t wait_ms;
+        if (block_forever) {
+            wait_ms = 1000;
+        } else {
+            TickType_t rem = deadline - now;
+            uint32_t rem_ms = (uint32_t)((uint64_t)rem * 1000 / configTICK_RATE_HZ);
+            wait_ms = rem_ms < 1000 ? rem_ms : 1000;
+            if (wait_ms == 0) wait_ms = 1;
+        }
+
+        esp_smoltcp_wait_progress(wait_ms);
+        /* Loop: rescan to see if we have readiness. */
+
+        /* Clear the partial-write from the prior scan_once so the next
+         * iteration starts clean. (scan_once only ever SETs bits — if
+         * one wasn't ready before but is now, we still need to ensure
+         * earlier "not ready" bits don't linger as set.) Actually
+         * scan_once never sets a bit that wasn't already in the input
+         * mask anyway, so the only bits in rd/wr are bits we set this
+         * iteration. Re-zero them to avoid duplicate counting on the
+         * next pass. */
+        if (rd) FD_ZERO(rd);
+        if (wr) FD_ZERO(wr);
     }
 }
 

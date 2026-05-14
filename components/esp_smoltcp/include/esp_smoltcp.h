@@ -97,6 +97,20 @@ uint32_t esp_smoltcp_get_netmask(esp_smoltcp_iface_t iface);
  * milestone for that work. */
 esp_err_t esp_smoltcp_get_ipv6_link_local(esp_smoltcp_iface_t iface, uint8_t out[16]);
 
+/* ---- poll-task wakeup primitives -------------------------------------- */
+
+/* Wake the smoltcp poll task immediately. Cheap; safe to call from any
+ * task. Use after queuing data for send when you want it on the wire
+ * before the next scheduled poll deadline. */
+void esp_smoltcp_kick_poll(void);
+
+/* Block the caller until the smoltcp poll task has completed at least
+ * one full poll cycle, or `timeout_ms` elapses. Returns regardless of
+ * whether forward progress actually happened — the caller rescans the
+ * state it cares about and decides. This is the primitive that
+ * eliminates ms-scale polling loops in select() / recv() / send(). */
+void esp_smoltcp_wait_progress(uint32_t timeout_ms);
+
 /* ---- runtime stats ---------------------------------------------------- */
 
 typedef struct {
@@ -156,6 +170,8 @@ typedef esp_smoltcp_stats_t      net_iface_stats_t;
 #define net_stack_get_netmask        esp_smoltcp_get_netmask
 #define net_stack_get_stats          esp_smoltcp_get_stats
 #define net_stack_frame_drops        esp_smoltcp_frame_pool_drops
+#define net_stack_kick_poll          esp_smoltcp_kick_poll
+#define net_stack_wait_progress      esp_smoltcp_wait_progress
 #define net_stack_l2_tap             esp_smoltcp_l2_tap
 #define net_stack_l2_send            esp_smoltcp_l2_send
 
