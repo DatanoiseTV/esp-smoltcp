@@ -15,9 +15,12 @@ CONFIG_LWIP_COMPAT_ENABLE=y
 # v0.2+ supports CONFIG_VFS_SUPPORT_SELECT=y (the default). The shim
 # registers its own VFS for the BSD-socket FD range, overriding lwIP's.
 
-# Disable lwIP IPv6 / autoIP — unreachable at runtime anyway via the wraps.
+# Disable autoIP — unreachable at runtime anyway via the wraps.
 CONFIG_LWIP_AUTOIP=n
-CONFIG_LWIP_IPV6=n
+# IPv6 stays ON so <lwip/sockets.h> defines struct sockaddr_in6 / in6_addr.
+# The lwIP IPv6 *code* is still unreachable at runtime via our wraps; only
+# the headers matter here. ~10 KB of dead code is the cost.
+CONFIG_LWIP_IPV6=y
 CONFIG_LWIP_NETIF_LOOPBACK=y  # esp_http_server's control-socket check
 
 # Skip runtime assertions on the data-plane hot path

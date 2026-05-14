@@ -81,6 +81,12 @@ size_t            smoltcp_tcp_recv_queue(smoltcp_iface_t h, smoltcp_socket_t s);
 size_t            smoltcp_tcp_send_capacity(smoltcp_iface_t h, smoltcp_socket_t s);
 void              smoltcp_tcp_close(smoltcp_iface_t h, smoltcp_socket_t s);
 
+/* IPv6 TCP connect — `dst` is 16 raw octets (struct in6_addr layout,
+ * network-byte-order memory). */
+int               smoltcp_tcp_connect_v6(smoltcp_iface_t h, smoltcp_socket_t s,
+                                         const uint8_t dst[16], uint16_t dst_port,
+                                         uint16_t local_port);
+
 /* ---- UDP -------------------------------------------------------------- */
 smoltcp_socket_t  smoltcp_udp_open(smoltcp_iface_t h, uint16_t local_port);
 int               smoltcp_udp_sendto(smoltcp_iface_t h, smoltcp_socket_t s,
@@ -90,6 +96,18 @@ int               smoltcp_udp_recvfrom(smoltcp_iface_t h, smoltcp_socket_t s,
                                        uint8_t *buf, size_t cap,
                                        uint32_t *src_ipv4_be, uint16_t *src_port);
 void              smoltcp_udp_close(smoltcp_iface_t h, smoltcp_socket_t s);
+
+/* IPv6 UDP sendto/recvfrom. `dst`/`src` are 16-byte arrays in network
+ * byte order. For recvfrom_v6, *is_v6_out = 1 if the datagram source
+ * was IPv6 (src is filled), 0 if it was IPv4 (caller should fall back
+ * to the v4 recvfrom for src address — or just ignore src). */
+int               smoltcp_udp_sendto_v6(smoltcp_iface_t h, smoltcp_socket_t s,
+                                        const uint8_t *buf, size_t len,
+                                        const uint8_t dst[16], uint16_t dst_port);
+int               smoltcp_udp_recvfrom_v6(smoltcp_iface_t h, smoltcp_socket_t s,
+                                          uint8_t *buf, size_t cap,
+                                          uint8_t src[16], uint16_t *src_port,
+                                          int *is_v6_out);
 
 /* ---- helpers ---------------------------------------------------------- */
 /* "192.168.1.1" -> network-byte-order u32. Returns 0 on success, -1 on parse error. */

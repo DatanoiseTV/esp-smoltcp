@@ -29,7 +29,10 @@ static const char *TAG = "sock_wrap";
 /* ---------------------------------------------------------------------- */
 int __wrap_lwip_socket(int domain, int type, int protocol)
 {
-    if (domain != AF_INET) { SET_ERRNO(EAFNOSUPPORT); return -1; }
+    bool v6;
+    if      (domain == AF_INET)  v6 = false;
+    else if (domain == AF_INET6) v6 = true;
+    else { SET_ERRNO(EAFNOSUPPORT); return -1; }
     fd_kind_t k;
     switch (type & 0xFF) {
         case SOCK_STREAM: k = FD_TCP; break;
@@ -43,6 +46,7 @@ int __wrap_lwip_socket(int domain, int type, int protocol)
     /* SOCK_NONBLOCK / SOCK_CLOEXEC are Linux-specific; newlib doesn't
      * define them. Callers can request non-blocking via fcntl(O_NONBLOCK). */
     e->nonblocking = false;
+    e->is_v6 = v6;
 
     if (k == FD_UDP) {
         e->sock = net_udp_open(e->iface, 0);
@@ -57,7 +61,23 @@ int __wrap_lwip_socket(int domain, int type, int protocol)
 int __wrap_lwip_bind(int fd, const struct sockaddr *addr, socklen_t alen)
 {
     fd_entry_t *e = fd_get(fd);
-    if (!e || alen < (socklen_t)sizeof(struct sockaddr_in) || addr->sa_family != AF_INET) {
+    if (!e || !addr) { SET_ERRNO(EINVAL); return -1; }
+
+    if (addr->sa_family == AF_INET6 && alen >= (socklen_t)sizeof(struct sockaddr_in6)) {
+        const struct sockaddr_in6 *sin6 = (const void *)addr;
+        memcpy(e->local_ipv6, &sin6->sin6_addr, 16);
+        e->local_port = ntohs(sin6->sin6_port);
+        e->is_v6 = true;
+        if (e->kind == FD_UDP) {
+            /* No in-RAM ::1 loopback for now; route v6 through smoltcp. */
+            if (net_sock_valid(e->sock)) net_udp_close(e->sock);
+            e->sock = net_udp_open(e->iface, e->local_port);
+            if (!net_sock_valid(e->sock)) { SET_ERRNO(EADDRINUSE); return -1; }
+        }
+        return 0;
+    }
+
+    if (addr->sa_family != AF_INET || alen < (socklen_t)sizeof(struct sockaddr_in)) {
         SET_ERRNO(EINVAL); return -1;
     }
     const struct sockaddr_in *sin = (const void *)addr;
@@ -165,7 +185,34 @@ int __wrap_lwip_accept(int fd, struct sockaddr *addr, socklen_t *alen)
 int __wrap_lwip_connect(int fd, const struct sockaddr *addr, socklen_t alen)
 {
     fd_entry_t *e = fd_get(fd);
-    if (!e || alen < (socklen_t)sizeof(struct sockaddr_in)) { SET_ERRNO(EINVAL); return -1; }
+    if (!e || !addr) { SET_ERRNO(EINVAL); return -1; }
+
+    if (addr->sa_family == AF_INET6 && alen >= (socklen_t)sizeof(struct sockaddr_in6)) {
+        const struct sockaddr_in6 *sin6 = (const void *)addr;
+        uint16_t port = ntohs(sin6->sin6_port);
+        if (e->kind == FD_TCP) {
+            e->sock = net_tcp_open(e->iface);
+            if (!net_sock_valid(e->sock)) { SET_ERRNO(ENOBUFS); return -1; }
+            esp_err_t er = net_tcp_connect6(e->sock,
+                                            (const uint8_t *)&sin6->sin6_addr,
+                                            port,
+                                            e->snd_timeout_ms ? e->snd_timeout_ms : 30000);
+            if (er != ESP_OK) { SET_ERRNO(ETIMEDOUT); return -1; }
+            e->connected = true;
+            e->is_v6 = true;
+            return 0;
+        }
+        if (e->kind == FD_UDP) {
+            memcpy(e->local_ipv6, &sin6->sin6_addr, 16);
+            e->local_port = port;
+            e->connected = true;
+            e->is_v6 = true;
+            return 0;
+        }
+        SET_ERRNO(EBADF); return -1;
+    }
+
+    if (alen < (socklen_t)sizeof(struct sockaddr_in)) { SET_ERRNO(EINVAL); return -1; }
     const struct sockaddr_in *sin = (const void *)addr;
     if (e->kind == FD_TCP) {
         e->sock = net_tcp_open(e->iface);
@@ -198,6 +245,9 @@ ssize_t __wrap_lwip_send(int fd, const void *buf, size_t len, int flags)
         return net_tcp_send(e->sock, buf, len, e->snd_timeout_ms ? e->snd_timeout_ms : 5000);
     }
     if (e->kind == FD_UDP) {
+        if (e->is_v6) {
+            return net_udp_sendto6(e->sock, buf, len, e->local_ipv6, e->local_port);
+        }
         return net_udp_sendto(e->sock, buf, len, e->local_ipv4_be, e->local_port);
     }
     SET_ERRNO(EBADF); return -1;
@@ -229,7 +279,15 @@ ssize_t __wrap_lwip_sendto(int fd, const void *buf, size_t len, int flags,
 {
     (void)flags;
     fd_entry_t *e = fd_get(fd);
-    if (!e || e->kind != FD_UDP) { SET_ERRNO(EBADF); return -1; }
+    if (!e || e->kind != FD_UDP || !to) { SET_ERRNO(EBADF); return -1; }
+
+    if (to->sa_family == AF_INET6 && tolen >= (socklen_t)sizeof(struct sockaddr_in6)) {
+        const struct sockaddr_in6 *sin6 = (const void *)to;
+        return net_udp_sendto6(e->sock, buf, len,
+                               (const uint8_t *)&sin6->sin6_addr,
+                               ntohs(sin6->sin6_port));
+    }
+
     if (tolen < (socklen_t)sizeof(struct sockaddr_in)) { SET_ERRNO(EINVAL); return -1; }
     const struct sockaddr_in *sin = (const void *)to;
     uint32_t dst_be = sin->sin_addr.s_addr;
@@ -247,10 +305,36 @@ ssize_t __wrap_lwip_recvfrom(int fd, void *buf, size_t len, int flags,
     (void)flags;
     fd_entry_t *e = fd_get(fd);
     if (!e || e->kind != FD_UDP) { SET_ERRNO(EBADF); return -1; }
-    uint32_t src_be = 0; uint16_t sp = 0;
     uint32_t to = e->rcv_timeout_ms ? e->rcv_timeout_ms : 30000;
     if (e->nonblocking) to = 0;
 
+    /* IPv6-capable path: ask smoltcp for the v6 src. If the actual
+     * datagram source was v4, smoltcp tells us via is_v6_out and we
+     * fall back to the v4 src reporter. */
+    if (e->is_v6) {
+        uint8_t src6[16] = {0};
+        uint16_t sp = 0;
+        int is_v6_out = 0;
+        int n = net_udp_recvfrom6(e->sock, buf, len, src6, &sp, &is_v6_out, to);
+        if (n == 0 && e->nonblocking) { SET_ERRNO(EWOULDBLOCK); return -1; }
+        if (n > 0 && from && fromlen && *fromlen >= sizeof(struct sockaddr_in6)) {
+            struct sockaddr_in6 sin6 = {
+                .sin6_family = AF_INET6,
+                .sin6_port   = htons(sp),
+            };
+            if (is_v6_out) {
+                memcpy(&sin6.sin6_addr, src6, 16);
+            }
+            /* else: src is v4, but the caller expects sockaddr_in6.
+             * Encode as v4-mapped IPv6 (::ffff:a.b.c.d). For now leave
+             * as :: — caller-side dual-stack code rarely depends on this. */
+            memcpy(from, &sin6, sizeof(sin6));
+            *fromlen = sizeof(sin6);
+        }
+        return n;
+    }
+
+    uint32_t src_be = 0; uint16_t sp = 0;
     int n;
     if (e->loopback && e->lo_rx) {
         lo_msg_t *m = NULL;
@@ -384,9 +468,28 @@ int __wrap_lwip_getsockopt(int fd, int level, int optname,
 int __wrap_lwip_getsockname(int fd, struct sockaddr *addr, socklen_t *alen)
 {
     fd_entry_t *e = fd_get(fd);
-    if (!e || !addr || !alen || *alen < sizeof(struct sockaddr_in)) {
-        SET_ERRNO(EINVAL); return -1;
+    if (!e || !addr || !alen) { SET_ERRNO(EINVAL); return -1; }
+
+    if (e->is_v6 && *alen >= sizeof(struct sockaddr_in6)) {
+        struct sockaddr_in6 sin6 = {
+            .sin6_family = AF_INET6,
+            .sin6_port   = htons(e->local_port),
+        };
+        /* If the app bound to a specific v6 addr, return it; else
+         * fill in the iface's link-local. */
+        bool any = true;
+        for (int i = 0; i < 16; i++) if (e->local_ipv6[i]) { any = false; break; }
+        if (any) {
+            esp_smoltcp_get_ipv6_link_local(e->iface, (uint8_t *)&sin6.sin6_addr);
+        } else {
+            memcpy(&sin6.sin6_addr, e->local_ipv6, 16);
+        }
+        memcpy(addr, &sin6, sizeof(sin6));
+        *alen = sizeof(sin6);
+        return 0;
     }
+
+    if (*alen < sizeof(struct sockaddr_in)) { SET_ERRNO(EINVAL); return -1; }
     struct sockaddr_in sin = {
         .sin_family = AF_INET,
         .sin_port = htons(e->local_port),

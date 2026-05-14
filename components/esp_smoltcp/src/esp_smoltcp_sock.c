@@ -65,6 +65,26 @@ esp_err_t net_tcp_connect(net_sock_t s, uint32_t ipv4_be, uint16_t port, uint32_
     return ESP_ERR_TIMEOUT;
 }
 
+esp_err_t net_tcp_connect6(net_sock_t s, const uint8_t addr[16], uint16_t port,
+                           uint32_t timeout_ms)
+{
+    smoltcp_iface_t h = handle_for(IFACE(s));
+    if (!h) return ESP_ERR_INVALID_ARG;
+    LOCK();
+    int rc = smoltcp_tcp_connect_v6(h, LOCAL(s), addr, port, 0);
+    UNLOCK();
+    if (rc != 0) return ESP_FAIL;
+    TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms);
+    while (xTaskGetTickCount() < deadline) {
+        LOCK();
+        bool active = smoltcp_tcp_is_active(h, LOCAL(s));
+        UNLOCK();
+        if (active) return ESP_OK;
+        net_stack_wait_progress(20);
+    }
+    return ESP_ERR_TIMEOUT;
+}
+
 esp_err_t net_tcp_listen(net_sock_t s, uint16_t port)
 {
     smoltcp_iface_t h = handle_for(IFACE(s));
@@ -203,6 +223,36 @@ int net_udp_recvfrom(net_sock_t s, void *buf, size_t cap,
     while (xTaskGetTickCount() <= deadline) {
         LOCK();
         int n = smoltcp_udp_recvfrom(h, LOCAL(s), buf, cap, src_be, src_port);
+        UNLOCK();
+        if (n > 0) return n;
+        net_stack_wait_progress(50);
+    }
+    return 0;
+}
+
+int net_udp_sendto6(net_sock_t s, const void *buf, size_t len,
+                    const uint8_t dst[16], uint16_t dst_port)
+{
+    smoltcp_iface_t h = handle_for(IFACE(s));
+    if (!h) return -1;
+    LOCK();
+    int n = smoltcp_udp_sendto_v6(h, LOCAL(s), buf, len, dst, dst_port);
+    UNLOCK();
+    if (n > 0) net_stack_kick_poll();
+    return n;
+}
+
+int net_udp_recvfrom6(net_sock_t s, void *buf, size_t cap,
+                     uint8_t src[16], uint16_t *src_port,
+                     int *is_v6_out, uint32_t timeout_ms)
+{
+    smoltcp_iface_t h = handle_for(IFACE(s));
+    if (!h) return -1;
+    TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms);
+    while (xTaskGetTickCount() <= deadline) {
+        LOCK();
+        int n = smoltcp_udp_recvfrom_v6(h, LOCAL(s), buf, cap,
+                                        src, src_port, is_v6_out);
         UNLOCK();
         if (n > 0) return n;
         net_stack_wait_progress(50);

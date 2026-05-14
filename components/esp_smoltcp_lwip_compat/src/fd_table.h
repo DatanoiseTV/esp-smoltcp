@@ -45,9 +45,16 @@ typedef struct fd_entry {
     uint16_t        port;
 
     /* Local bind state (TCP pre-listen, UDP). */
-    uint32_t        local_ipv4_be;    /* 0 = INADDR_ANY */
+    uint32_t        local_ipv4_be;    /* 0 = INADDR_ANY (v4 path) */
     uint16_t        local_port;
     net_iface_id_t  iface;
+
+    /* AF_INET6 state. When `is_v6`, sockaddr_in6 is the wire format and
+     * peer/local addresses live in `local_ipv6` (raw 16 octets, network
+     * byte order, struct in6_addr layout). `is_v6 = false` keeps the
+     * v4-only fast path bit-for-bit identical to v0.1. */
+    bool            is_v6;
+    uint8_t         local_ipv6[16];
 
     /* For select() wakeup: bit set when this FD changes state. */
     EventGroupHandle_t evt;

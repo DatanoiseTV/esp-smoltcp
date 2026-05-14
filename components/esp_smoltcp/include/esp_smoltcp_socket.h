@@ -36,6 +36,10 @@ bool       net_tcp_is_connected(net_sock_t s);
 size_t     net_tcp_recv_queue(net_sock_t s);
 size_t     net_tcp_send_capacity(net_sock_t s);
 
+/* IPv6 TCP connect. `addr` is 16 raw octets (struct in6_addr layout). */
+esp_err_t  net_tcp_connect6(net_sock_t s, const uint8_t addr[16], uint16_t port,
+                            uint32_t timeout_ms);
+
 /* UDP */
 net_sock_t net_udp_open(net_iface_id_t iface, uint16_t local_port);
 int        net_udp_sendto(net_sock_t s, const void *buf, size_t len,
@@ -44,6 +48,15 @@ int        net_udp_recvfrom(net_sock_t s, void *buf, size_t len,
                             uint32_t *src_ipv4_be, uint16_t *src_port,
                             uint32_t timeout_ms);
 esp_err_t  net_udp_close(net_sock_t s);
+
+/* IPv6 UDP send/recv. `dst` / `src` are 16-byte arrays in network byte
+ * order. For recvfrom6, *is_v6_out is 1 if the source was IPv6 (src
+ * filled), 0 if IPv4 (caller should fall back). */
+int        net_udp_sendto6(net_sock_t s, const void *buf, size_t len,
+                           const uint8_t dst[16], uint16_t dst_port);
+int        net_udp_recvfrom6(net_sock_t s, void *buf, size_t cap,
+                             uint8_t src[16], uint16_t *src_port,
+                             int *is_v6_out, uint32_t timeout_ms);
 
 /* IP multicast (requires CONFIG_NETSTACK_IGMP) */
 esp_err_t  net_mcast_join(net_iface_id_t iface, uint32_t group_ipv4_be);

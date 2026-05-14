@@ -320,6 +320,15 @@ fn ipv4_to_be(addr: Ipv4Address) -> u32 {
     u32::from_le_bytes(addr.octets())
 }
 
+/* IPv6 wire-format helper — peer's struct in6_addr is 16 raw octets in
+ * network-byte-order memory layout, which is exactly Ipv6Address's
+ * representation. No byte-flipping needed (unlike v4). */
+unsafe fn ipv6_from_ptr(p: *const u8) -> Ipv6Address {
+    let mut o = [0u8; 16];
+    core::ptr::copy_nonoverlapping(p, o.as_mut_ptr(), 16);
+    Ipv6Address::from(o)
+}
+
 // ---------------------------------------------------------------------------
 // Public C-callable surface
 // ---------------------------------------------------------------------------
@@ -505,6 +514,25 @@ pub unsafe extern "C" fn smoltcp_tcp_connect(h: *mut IfaceCtx, id: u32,
     match s.connect(cx, (dst, dst_port), local) { Ok(_) => 0, Err(_) => -1 }
 }
 
+/* IPv6 connect — same as v4 but the destination is a 16-byte raw
+ * address in network-byte-order memory layout (matches struct in6_addr).
+ * `dst` must point to at least 16 bytes. */
+#[no_mangle]
+pub unsafe extern "C" fn smoltcp_tcp_connect_v6(h: *mut IfaceCtx, id: u32,
+                                                dst: *const u8, dst_port: u16,
+                                                local_port: u16) -> c_int {
+    if h.is_null() || dst.is_null() { return -1; }
+    let ctx = &mut *h;
+    let Some(sh) = ctx.lookup(id) else { return -1; };
+    let dst_addr: IpAddress = ipv6_from_ptr(dst).into();
+    let local = if local_port == 0 {
+        49152u16.wrapping_add((smoltcp_glue_rand32() & 0x3FFF) as u16)
+    } else { local_port };
+    let cx = ctx.iface.context();
+    let s = ctx.sockets.get_mut::<tcp::Socket>(sh);
+    match s.connect(cx, (dst_addr, dst_port), local) { Ok(_) => 0, Err(_) => -1 }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn smoltcp_tcp_listen(h: *mut IfaceCtx, id: u32, port: u16) -> c_int {
     if h.is_null() { return -1; }
@@ -639,6 +667,59 @@ pub unsafe extern "C" fn smoltcp_udp_recvfrom(h: *mut IfaceCtx, id: u32,
             if let IpAddress::Ipv4(a) = meta.endpoint.addr {
                 if !src_be.is_null() {
                     *src_be = ipv4_to_be(a);
+                }
+            }
+            if !src_port.is_null() { *src_port = meta.endpoint.port; }
+            n as c_int
+        }
+        Err(_) => -1,
+    }
+}
+
+/* IPv6 UDP sendto. `dst` is 16 raw octets (struct in6_addr layout). */
+#[no_mangle]
+pub unsafe extern "C" fn smoltcp_udp_sendto_v6(h: *mut IfaceCtx, id: u32,
+                                               buf: *const u8, len: usize,
+                                               dst: *const u8, dst_port: u16) -> c_int {
+    if h.is_null() || buf.is_null() || dst.is_null() { return -1; }
+    let ctx = &mut *h;
+    let Some(sh) = ctx.lookup(id) else { return -1; };
+    let slice = core::slice::from_raw_parts(buf, len);
+    let dst_addr: IpAddress = ipv6_from_ptr(dst).into();
+    let endpoint = IpEndpoint::new(dst_addr, dst_port);
+    let s = ctx.sockets.get_mut::<udp::Socket>(sh);
+    match s.send_slice(slice, endpoint) {
+        Ok(_) => len as c_int,
+        Err(_) => -1,
+    }
+}
+
+/* IPv6 UDP recvfrom. `src` must point to 16 writable bytes. If the
+ * incoming datagram was IPv4-sourced the v4-mapped-IPv6 encoding is
+ * NOT applied — we set `is_v6_out` to 0 and write nothing to `src`;
+ * the caller should use the v4 recvfrom instead. */
+#[no_mangle]
+pub unsafe extern "C" fn smoltcp_udp_recvfrom_v6(h: *mut IfaceCtx, id: u32,
+                                                 buf: *mut u8, cap: usize,
+                                                 src: *mut u8, src_port: *mut u16,
+                                                 is_v6_out: *mut c_int) -> c_int {
+    if h.is_null() || buf.is_null() { return -1; }
+    let ctx = &mut *h;
+    let Some(sh) = ctx.lookup(id) else { return -1; };
+    let slice = core::slice::from_raw_parts_mut(buf, cap);
+    let s = ctx.sockets.get_mut::<udp::Socket>(sh);
+    match s.recv_slice(slice) {
+        Ok((n, meta)) => {
+            match meta.endpoint.addr {
+                IpAddress::Ipv6(a) => {
+                    if !src.is_null() {
+                        let bytes = a.octets();
+                        core::ptr::copy_nonoverlapping(bytes.as_ptr(), src, 16);
+                    }
+                    if !is_v6_out.is_null() { *is_v6_out = 1; }
+                }
+                IpAddress::Ipv4(_) => {
+                    if !is_v6_out.is_null() { *is_v6_out = 0; }
                 }
             }
             if !src_port.is_null() { *src_port = meta.endpoint.port; }
