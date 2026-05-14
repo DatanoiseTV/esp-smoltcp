@@ -28,8 +28,21 @@ static const char *TAG = "eth_basic";
 
 static esp_eth_handle_t install_ethernet(void)
 {
-    /* MAC: defaults are P4-correct out of the box (TX_EN=49, TXD0=34,
-     * TXD1=35, CRS_DV=28, RXD0=29, RXD1=30, EMAC_CLK_EXT_IN @ 50). */
+    /* MAC: ETH_ESP32_EMAC_DEFAULT_CONFIG() for esp32p4 already matches
+     * the Waveshare ESP32-P4-Nano pinout exactly:
+     *   TX_EN  = GPIO49
+     *   TXD0   = GPIO34
+     *   TXD1   = GPIO35
+     *   CRS_DV = GPIO28
+     *   RXD0   = GPIO29
+     *   RXD1   = GPIO30
+     *   REF_CLK source = EMAC_CLK_EXT_IN on GPIO50 (50 MHz from the
+     *                    PHY's 25 MHz crystal × 2)
+     *   MDC    = GPIO31
+     *   MDIO   = GPIO52
+     *
+     * We re-assign mdc/mdio for documentation; values are the same as
+     * the macro defaults. PHY reset on GPIO51 below. */
     eth_esp32_emac_config_t emac_cfg = ETH_ESP32_EMAC_DEFAULT_CONFIG();
     emac_cfg.smi_gpio.mdc_num  = 31;
     emac_cfg.smi_gpio.mdio_num = 52;
@@ -45,6 +58,14 @@ static esp_eth_handle_t install_ethernet(void)
     esp_eth_config_t eth_cfg = ETH_DEFAULT_CONFIG(mac, phy);
     esp_eth_handle_t h;
     ESP_ERROR_CHECK(esp_eth_driver_install(&eth_cfg, &h));
+
+    /* Hardware flow control: send 802.3x PAUSE frames when the RX
+     * ring is filling and honour incoming PAUSE from the peer. Pairs
+     * with CONFIG_ETH_SOFT_FLOW_CONTROL=y to keep the link healthy
+     * under sustained ingress load. */
+    bool flow_ctrl_enable = true;
+    ESP_ERROR_CHECK(esp_eth_ioctl(h, ETH_CMD_S_FLOW_CTRL, &flow_ctrl_enable));
+
     return h;
 }
 

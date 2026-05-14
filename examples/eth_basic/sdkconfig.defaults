@@ -22,3 +22,22 @@ CONFIG_LWIP_NETIF_LOOPBACK=y  # esp_http_server's control-socket check
 
 # Skip runtime assertions on the data-plane hot path
 CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE=y
+
+# 1 kHz FreeRTOS tick — drops the floor on select() tail latency and
+# the per-tick granularity of vTaskDelay-bounded waits everywhere.
+CONFIG_FREERTOS_HZ=1000
+
+# ETH driver tuning. RX > 15 is the gate for SOFT_FLOW_CONTROL, and the
+# bigger TX queue avoids back-pressure stalls during burst sends.
+CONFIG_ETH_DMA_RX_BUFFER_NUM=30
+CONFIG_ETH_DMA_TX_BUFFER_NUM=30
+
+# Software flow control: when the RX ring is filling up, the MAC driver
+# drops the lowest-priority frames to keep the queue healthy. Combined
+# with the hardware PAUSE-frame flow control we enable from app code
+# (esp_eth_ioctl ETH_CMD_S_FLOW_CTRL), this keeps the link clean under
+# sustained load.
+CONFIG_ETH_SOFT_FLOW_CONTROL=y
+
+# Pin ETH RX/TX hot path into IRAM — direct throughput win.
+CONFIG_ETH_IRAM_OPTIMIZATION=y
