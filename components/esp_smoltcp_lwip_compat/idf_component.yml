@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.2.0-rc.1"
 description: "BSD-sockets compatibility shim — every IDF networking component (esp_http_server, esp-tls, esp-mqtt) talks to smoltcp transparently via linker --wrap."
 url: "https://github.com/DatanoiseTV/esp-smoltcp"
 repository: "https://github.com/DatanoiseTV/esp-smoltcp.git"
@@ -13,5 +13,5 @@ tags:
 
 dependencies:
   idf: ">=5.4"
-  datanoisetv/esp_smoltcp: "^0.1.0"
-  datanoisetv/esp_smoltcp_glue: "^0.1.0"
+  datanoisetv/esp_smoltcp: "0.2.0-rc.1"
+  datanoisetv/esp_smoltcp_glue: "0.2.0-rc.1"

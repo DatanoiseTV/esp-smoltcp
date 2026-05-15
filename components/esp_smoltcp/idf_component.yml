@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.2.0-rc.1"
 description: "Rust smoltcp IP stack for ESP-IDF — single-task poll loop, slab-allocated frames, L2 tap, runtime stats. Pair with esp_smoltcp_lwip_compat for transparent BSD-sockets compatibility."
 url: "https://github.com/DatanoiseTV/esp-smoltcp"
 repository: "https://github.com/DatanoiseTV/esp-smoltcp.git"
@@ -15,4 +15,4 @@ tags:
 
 dependencies:
   idf: ">=5.4"
-  datanoisetv/esp_smoltcp_glue: "^0.1.0"
+  datanoisetv/esp_smoltcp_glue: "0.2.0-rc.1"

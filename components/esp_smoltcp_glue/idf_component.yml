@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.2.0-rc.1"
 description: "Rust smoltcp 0.12 staticlib + C FFI for the esp_smoltcp ESP-IDF component."
 url: "https://github.com/DatanoiseTV/esp-smoltcp"
 repository: "https://github.com/DatanoiseTV/esp-smoltcp.git"
