@@ -1,5 +1,22 @@
 # Changelog
 
+## [esp_smoltcp_lwip_compat v0.1.1] — 2026-06-11
+
+Fixes two bugs that broke standalone installs from the Component
+Registry. Both found by @david-cermak while reviewing the
+[developer-portal article](https://github.com/espressif/developer-portal/pull/742).
+
+### Fixed
+
+- **CMake configure failure on fresh installs.** The component declared
+  `INCLUDE_DIRS "include"` but ships no `include/` directory (its API
+  surface is purely linker `--wrap` symbols). The line is removed.
+- **Undefined `CONFIG_APP_HOSTNAME` on standalone builds.** The hostname
+  Kconfig symbol came from the original template app and doesn't exist
+  when the component is installed into an arbitrary project. It now
+  defaults to `"espressif"` when undefined. v0.2 replaces this with a
+  proper component-level option (`CONFIG_LWIP_COMPAT_HOSTNAME`).
+
 ## [v0.1.0] — 2026-05-04
 
 First public release. Library extracted from the

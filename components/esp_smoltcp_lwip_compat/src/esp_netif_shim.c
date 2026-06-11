@@ -21,6 +21,14 @@
 
 #include "esp_smoltcp.h"
 
+/* CONFIG_APP_HOSTNAME comes from the consuming app's Kconfig (the original
+ * template defines it). Standalone installs from the Component Registry
+ * don't have it, so default it here. v0.2 replaces this with a proper
+ * component-level Kconfig option (CONFIG_LWIP_COMPAT_HOSTNAME). */
+#ifndef CONFIG_APP_HOSTNAME
+#define CONFIG_APP_HOSTNAME "espressif"
+#endif
+
 __attribute__((unused))
 static const char *TAG = "esp_netif_shim";
 
